@@ -1,6 +1,8 @@
 // Apply tags to filenames in a formatted fashion
 // filename[tag tag tag].ext
 use std::collections::BTreeSet;
+use std::convert::{From, TryFrom};
+use std::str::FromStr;
 
 const OPEN_BRACE: u8 = b'[';
 const CLOSE_BRACE: u8 = b']';
@@ -107,21 +109,31 @@ impl NameTag {
             tags.insert(buffer);
         }
     }
+}
 
-    fn combine(&self) -> Vec<&u8> {
-        let prefix = self.prefix.iter();
-        let suffix = self.suffix.iter();
-        let tag_len = self.tags.len();
+impl FromStr for NameTag {
+    type Err = &'static String;
+
+    fn from_str(name: &str) -> Result<Self, Self::Err> {
+        Ok(NameTag::new(name))
+    }
+}
+
+impl From<NameTag> for Vec<u8> {
+    fn from(nametag: NameTag) -> Self {
+        let prefix = nametag.prefix.into_iter();
+        let suffix = nametag.suffix.into_iter();
+        let tag_len = nametag.tags.len();
         if tag_len == 0 {
             prefix.chain(suffix).collect()
         } else {
-            let open_brace = Some(OPEN_BRACE).iter();
-            let close_brace = Some(CLOSE_BRACE).iter();
-            let tags = self.tags.iter().enumerate().flat_map(|(i, t)| {
+            let open_brace = Some(OPEN_BRACE).into_iter();
+            let close_brace = Some(CLOSE_BRACE).into_iter();
+            let tags = nametag.tags.into_iter().enumerate().flat_map(|(i, t)| {
                 if i + 1 == tag_len {
-                    t.iter().chain(None.iter())
+                    t.into_iter().chain(None.into_iter())
                 } else {
-                    t.iter().chain(Some(SPACE).iter())
+                    t.into_iter().chain(Some(SPACE).into_iter())
                 }
             });
             prefix
@@ -134,11 +146,11 @@ impl NameTag {
     }
 }
 
-impl std::convert::TryFrom<NameTag> for String {
+impl TryFrom<NameTag> for String {
     type Error = &'static str;
 
     fn try_from(value: NameTag) -> Result<Self, Self::Error> {
-        if let Ok(result) = String::from_utf8(value.combine().into_iter().copied().collect()) {
+        if let Ok(result) = String::from_utf8(value.into()) {
             Ok(result)
         } else {
             Err("Failed to convert to string.")
@@ -156,10 +168,13 @@ mod tests {
     fn test_round_trip_no_tags() {
         let name_tag = NameTag::new("somefile.txt");
         assert_eq!("somefile.txt", &String::try_from(name_tag).unwrap());
+
+        let name_tag: NameTag = "somefile.txt".parse().unwrap();
+        assert_eq!("somefile.txt", &String::try_from(name_tag).unwrap());
     }
     #[test]
     fn test_round_trip_maintain_tags() {
-        let name_tag = NameTag::new("somefile[tagB tagA].txt");
+        let name_tag: NameTag = "somefile[tagB tagA].txt".parse().unwrap();
         assert_eq!(
             "somefile[tagA tagB].txt",
             &String::try_from(name_tag).unwrap()
@@ -167,14 +182,14 @@ mod tests {
     }
     #[test]
     fn test_round_trip_empty_tags() {
-        let name_tag = NameTag::new("somefile[].txt");
+        let name_tag: NameTag = "somefile[].txt".parse().unwrap();
         assert_eq!("somefile.txt", &String::try_from(name_tag).unwrap());
     }
 
     // Functionality
     #[test]
     fn test_get_tags() {
-        let name_tag = NameTag::new("somefile[tagB tagA].txt");
+        let name_tag: NameTag = "somefile[tagB tagA].txt".parse().unwrap();
         assert_eq!(
             vec!["tagA", "tagB"],
             name_tag
@@ -230,7 +245,7 @@ mod tests {
     // Edgy Cases
     #[test]
     fn test_round_trip_nested_braces() {
-        let name_tag = NameTag::new("somefile[nottag [tagB tagA]].txt");
+        let name_tag: NameTag = "somefile[nottag [tagB tagA]].txt".parse().unwrap();
         assert_eq!(
             "somefile[nottag [tagA tagB]].txt",
             &String::try_from(name_tag).unwrap()
@@ -238,7 +253,7 @@ mod tests {
     }
     #[test]
     fn test_round_trip_unmatched_braces() {
-        let name_tag = NameTag::new("somefile[tagB tagA.txt");
+        let name_tag: NameTag = "somefile[tagB tagA.txt".parse().unwrap();
         assert_eq!(
             "somefile[tagB tagA.txt",
             &String::try_from(name_tag).unwrap()
@@ -246,7 +261,7 @@ mod tests {
     }
     #[test]
     fn test_round_trip_lota_spaces() {
-        let name_tag = NameTag::new("somefile[   tagB    tagA  ].txt");
+        let name_tag: NameTag = "somefile[   tagB    tagA  ].txt".parse().unwrap();
         assert_eq!(
             "somefile[tagA tagB].txt",
             &String::try_from(name_tag).unwrap()
@@ -254,7 +269,7 @@ mod tests {
     }
     #[test]
     fn test_round_trip_tags_in_front() {
-        let name_tag = NameTag::new("[tagB tagA]somefile.txt");
+        let name_tag: NameTag = "[tagB tagA]somefile.txt".parse().unwrap();
         assert_eq!(
             "[tagA tagB]somefile.txt",
             &String::try_from(name_tag).unwrap()

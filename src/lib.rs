@@ -40,10 +40,12 @@ impl NameTag {
         }
     }
 
+    /// Add a new tag. eg tags.add_tag("john")
     pub fn add_tag<T: Into<Vec<u8>>>(&mut self, tag: T) {
         self.tags.insert(tag.into());
     }
 
+    /// Remove a tag. eg tags.remove_tag("john")
     pub fn remove_tag<T: Into<Vec<u8>>>(&mut self, tag: T) {
         self.tags.remove(&tag.into());
     }
@@ -52,6 +54,7 @@ impl NameTag {
         self.tags.iter()
     }
 
+    /// Remove all tags.
     pub fn clear_tags(&mut self) {
         self.tags.clear();
     }
@@ -170,13 +173,27 @@ mod tests {
 
     // Functionality
     #[test]
-    fn test_add_tag() {
+    fn test_get_tags() {
+        let name_tag = NameTag::new("somefile[tagB tagA].txt");
+        assert_eq!(
+            vec!["tagA", "tagB"],
+            name_tag
+                .get_tags()
+                .map(|t| String::from_utf8_lossy(t))
+                .collect::<Vec<_>>()
+        );
+    }
+    #[test]
+    fn test_add_tags() {
         let mut name_tag = NameTag::new("somefile.txt");
         name_tag.add_tag("tagB");
         name_tag.add_tag("tagA");
         assert_eq!(
-            "somefile[tagA tagB].txt",
-            &String::try_from(name_tag).unwrap()
+            vec!["tagA", "tagB"],
+            name_tag
+                .get_tags()
+                .map(|t| String::from_utf8_lossy(t))
+                .collect::<Vec<_>>()
         );
     }
     #[test]
@@ -193,6 +210,15 @@ mod tests {
         let mut name_tag = NameTag::new("somefile[tagB tagA].txt");
         name_tag.remove_tag("tagA");
         assert_eq!("somefile[tagB].txt", &String::try_from(name_tag).unwrap());
+    }
+    #[test]
+    fn test_round_trip_remove_absent_tag() {
+        let mut name_tag = NameTag::new("somefile[tagB tagA].txt");
+        name_tag.remove_tag("tagC");
+        assert_eq!(
+            "somefile[tagA tagB].txt",
+            &String::try_from(name_tag).unwrap()
+        );
     }
     #[test]
     fn test_round_trip_clear_tags() {

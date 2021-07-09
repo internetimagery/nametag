@@ -2,6 +2,7 @@
 // filename[tag tag tag].ext
 use std::collections::BTreeSet;
 use std::convert::{From, TryFrom};
+use std::path::PathBuf;
 use std::str::FromStr;
 
 const OPEN_BRACE: u8 = b'[';
@@ -10,11 +11,13 @@ const DOT: u8 = b'.';
 const SPACE: u8 = b' ';
 const COMMA: u8 = b',';
 
+type Tag = Vec<u8>;
+
 #[derive(Debug)]
 pub struct NameTag {
     prefix: Vec<u8>,
     suffix: Vec<u8>,
-    tags: BTreeSet<Vec<u8>>,
+    tags: BTreeSet<Tag>,
 }
 
 // Interface into tag naming scheme. eg filename[tag1 tag2].ext
@@ -43,16 +46,16 @@ impl NameTag {
     }
 
     /// Add a new tag. eg tags.add_tag("john")
-    pub fn add_tag<T: Into<Vec<u8>>>(&mut self, tag: T) {
+    pub fn add_tag<T: Into<Tag>>(&mut self, tag: T) {
         self.tags.insert(tag.into());
     }
 
     /// Remove a tag. eg tags.remove_tag("john")
-    pub fn remove_tag<T: Into<Vec<u8>>>(&mut self, tag: T) {
+    pub fn remove_tag<T: Into<Tag>>(&mut self, tag: T) {
         self.tags.remove(&tag.into());
     }
 
-    pub fn get_tags(&self) -> std::collections::btree_set::Iter<Vec<u8>> {
+    pub fn get_tags(&self) -> std::collections::btree_set::Iter<Tag> {
         self.tags.iter()
     }
 
@@ -92,7 +95,7 @@ impl NameTag {
         data.len()
     }
 
-    fn parse_tags(tags: &mut BTreeSet<Vec<u8>>, data: &[u8]) {
+    fn parse_tags(tags: &mut BTreeSet<Tag>, data: &[u8]) {
         let mut buffer = Vec::new();
         for ch in data.iter() {
             match *ch {
@@ -143,6 +146,12 @@ impl From<NameTag> for Vec<u8> {
                 .chain(suffix)
                 .collect()
         }
+    }
+}
+
+impl From<PathBuf> for NameTag {
+    fn from(path: PathBuf) -> NameTag {
+        NameTag::new(path.as_os_str().as_bytes())
     }
 }
 
